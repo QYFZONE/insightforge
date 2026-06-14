@@ -9,5 +9,6 @@ reports/*.pdf
 reports/*.html
 data/uploads/
 data/cache/
+_reference/
 *.exe
 *.test
