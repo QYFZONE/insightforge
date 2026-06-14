@@ -1,0 +1,13 @@
+.env
+.idea/
+.vscode/
+bin/
+tmp/
+dist/
+node_modules/
+reports/*.pdf
+reports/*.html
+data/uploads/
+data/cache/
+*.exe
+*.test
