@@ -29,11 +29,19 @@ Web UI
 
 ## 本地开发
 
+复制环境变量示例：
+
+```powershell
+Copy-Item .env.example .env
+```
+
 启动后端服务：
 
 ```powershell
 go run ./cmd/server
 ```
+
+服务启动时会自动读取项目根目录下的 `.env`。
 
 健康检查：
 
@@ -50,20 +58,31 @@ curl http://localhost:8080/events
 ## 目录说明
 
 ```text
-cmd/server          服务入口
-internal/agent      Eino Agent 构建和调度
-internal/workflow   Workflow / Graph Tool
-internal/tools      搜索、网页、PDF、报告等工具
-internal/session    Session 模型和服务
-internal/sse        SSE 事件推送
-internal/callbacks  Callback Trace
-internal/approval   Interrupt / Resume 审批状态
-internal/store      持久化层
-skills              可复用 SKILL.md
-web                 前端应用
-reports             生成的报告
-data                上传文件和缓存
-docs                项目文档
+cmd/server                    服务入口，只负责装配依赖和启动 HTTP 服务
+internal/config               配置加载
+internal/domain/session       Session / Event 领域模型
+internal/app/research         研究任务业务层
+internal/transport/httpapi    HTTP / SSE 适配层
+internal/event/sse            SSE 事件推送
+internal/infra/store/memory   内存存储实现
+internal/infra/store/sqlite   SQLite / GORM 存储实现
+internal/agent                Agent 执行器，后续接入 Eino
+skills                        可复用 SKILL.md
+web                           前端应用
+reports                       生成的报告
+data                          上传文件和缓存
+docs                          项目文档
+```
+
+## 环境变量
+
+```text
+HTTP_ADDR      HTTP 监听地址，默认 :8080
+STORE_DRIVER   存储类型，支持 memory / sqlite
+SQLITE_PATH    SQLite 数据库文件路径，默认 data/insightforge.db
+ARK_API_KEY    火山 Ark API Key，后续真实 Agent 阶段使用
+ARK_MODEL_ID   火山 Ark 模型接入点 ID，后续真实 Agent 阶段使用
+ARK_BASE_URL   火山 Ark API 地址，默认 https://ark.cn-beijing.volces.com/api/v3
 ```
 
 ## Roadmap

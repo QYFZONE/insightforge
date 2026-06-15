@@ -15,34 +15,47 @@ Web UI
 ## 后端目录结构
 
 ```text
-cmd/server          HTTP 服务入口
-internal/agent      Eino Agent 构建和调度
-internal/workflow   Workflow / Graph Tool
-internal/tools      外部工具和本地工具
-internal/session    Session 模型和服务
-internal/sse        SSE 事件推送
-internal/callbacks  Eino Callback Trace
-internal/approval   Interrupt / Resume 审批
-internal/store      数据持久化
-skills              可复用 SKILL.md
-web                 前端应用
-reports             生成的 Markdown 报告
-data                上传文件和缓存
-docs                项目文档
+cmd/server                    HTTP 服务入口，只负责装配依赖和启动服务
+internal/config               配置加载，集中读取环境变量
+internal/domain/session       Session / Event 领域模型和领域错误
+internal/app/research         研究任务业务层，编排 Session、事件、Agent
+internal/transport/httpapi    HTTP / SSE 适配层，只处理请求和响应
+internal/event/sse            内存 SSE Broker，后续可替换为 Redis Pub/Sub
+internal/infra/store/memory   内存存储实现
+internal/infra/store/sqlite   SQLite / GORM 存储实现
+internal/agent                Eino Agent 构建和调度
+internal/workflow             Workflow / Graph Tool
+internal/tools                外部工具和本地工具
+internal/callbacks            Eino Callback Trace
+internal/approval             Interrupt / Resume 审批
+skills                        可复用 SKILL.md
+web                           前端应用
+reports                       生成的 Markdown 报告
+data                          上传文件和缓存
+docs                          项目文档
 ```
 
 ## 请求流程
 
 ```text
 POST /sessions
-  -> 创建 Session
+  -> transport/httpapi
+  -> research.Service
+  -> domain/session
+  -> infra/store
 
 GET /sessions/{id}/events
-  -> 建立 SSE 事件流
+  -> transport/httpapi
+  -> research.Service.ListEvents
+  -> research.Service.SubscribeEvents
+  -> event/sse.Broker
 
 POST /sessions/{id}/messages
-  -> 启动 Agent 任务
-  -> 推送 Agent 事件
+  -> transport/httpapi
+  -> research.Service.SendMessage
+  -> infra/store / event/sse.Broker
+  -> agent.Runner
+  -> research.Service.Emit
   -> 等待审批或生成报告
 
 POST /sessions/{id}/approvals

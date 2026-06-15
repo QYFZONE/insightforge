@@ -2,8 +2,9 @@ package agent
 
 import (
 	"context"
+	"time"
 
-	"insightforge/internal/session"
+	"insightforge/internal/domain/session"
 )
 
 type EventSink interface {
@@ -14,20 +15,64 @@ type EventSink interface {
 // RunMockResearch 是第一阶段的假 Agent timeline。
 // TODO: 第二阶段用 Eino Runner 替换这里，事件来源改为 Callback + Tool/Agent 输出。
 func RunMockResearch(ctx context.Context, store EventSink, sessionID string, topic string) {
-	// TODO:
-	// 1. store.SetStatus(ctx, sessionID, session.StatusRunning)
-	// 2. 构造 []session.Event，依次包含：
-	//    - session_started
-	//    - agent_started
-	//    - workflow_step
-	//    - tool_call
-	//    - tool_result
-	//    - approval_required
-	// 3. 每个事件之间 time.Sleep 一小段，模拟 Agent 执行过程
-	// 4. 每个事件调用 store.Emit(ctx, event)
-	// 5. 最后把状态设为 session.StatusWaitingApproval
-	_ = ctx
-	_ = store
-	_ = sessionID
-	_ = topic
+	_ = store.SetStatus(ctx, sessionID, session.StatusRunning)
+
+	steps := []session.Event{
+		{
+			SessionID: sessionID,
+			Type:      "session_started",
+			Message:   "研究任务已启动",
+			Payload: map[string]any{
+				"topic": topic,
+			},
+		},
+		{
+			SessionID: sessionID,
+			Type:      "agent_started",
+			Message:   "Planner Agent 正在生成研究计划",
+		},
+		{
+			SessionID: sessionID,
+			Type:      "workflow_step",
+			Message:   "已生成初始研究计划",
+			Payload: map[string]any{
+				"agent": "planner",
+			},
+		},
+		{
+			SessionID: sessionID,
+			Type:      "tool_call",
+			Message:   "Researcher Agent 调用 mock_search",
+			Payload: map[string]any{
+				"tool": "mock_search",
+			},
+		},
+		{
+			SessionID: sessionID,
+			Type:      "tool_result",
+			Message:   "mock_search 返回 3 条候选资料",
+			Payload: map[string]any{
+				"count": 3,
+			},
+		},
+		{
+			SessionID: sessionID,
+			Type:      "approval_required",
+			Message:   "报告大纲已生成，等待用户审批",
+			Payload: map[string]any{
+				"outline": []string{"背景", "核心发现", "证据分析", "风险", "建议"},
+			},
+		},
+	}
+
+	for _, event := range steps {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(350 * time.Millisecond):
+		}
+		_ = store.Emit(ctx, event)
+	}
+
+	_ = store.SetStatus(ctx, sessionID, session.StatusWaitingApproval)
 }

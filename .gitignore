@@ -7,6 +7,9 @@ dist/
 node_modules/
 reports/*.pdf
 reports/*.html
+data/*.db
+data/*.sqlite
+data/*.sqlite3
 data/uploads/
 data/cache/
 _reference/

@@ -13,3 +13,7 @@ func newID(prefix string) string {
 	}
 	return prefix + "_" + hex.EncodeToString(b[:])
 }
+
+func NewID(prefix string) string {
+	return newID(prefix)
+}

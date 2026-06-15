@@ -1,0 +1,345 @@
+openapi: 3.0.3
+info:
+  title: InsightForge API
+  version: 0.1.0
+  description: InsightForge 第一阶段后端 API，用于验证 Session、消息发送和 SSE 时间线事件。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+tags:
+  - name: Health
+    description: 服务健康检查
+  - name: Sessions
+    description: 研究会话
+  - name: Events
+    description: SSE 时间线事件
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: 健康检查
+      operationId: getHealth
+      responses:
+        "200":
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                time: "2026-06-15T20:22:18+08:00"
+
+  /sessions:
+    post:
+      tags:
+        - Sessions
+      summary: 创建研究会话
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+            example:
+              topic: "Eino 多 Agent 研究"
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    get:
+      tags:
+        - Sessions
+      summary: 查询研究会话列表
+      operationId: listSessions
+      responses:
+        "200":
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSessionsResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /sessions/{session_id}/messages:
+    post:
+      tags:
+        - Sessions
+      summary: 发送用户消息并启动研究任务
+      operationId: sendMessage
+      parameters:
+        - $ref: "#/components/parameters/SessionID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+            example:
+              content: "开始研究"
+      responses:
+        "202":
+          description: 已接收，后台开始执行研究任务
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResponse"
+              example:
+                status: accepted
+                session_id: ses_xxx
+        "400":
+          description: 请求体错误或消息内容为空
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_json:
+                  summary: JSON 格式错误
+                  value:
+                    code: INVALID_JSON
+                    message: 请求体不是合法 JSON
+                empty_content:
+                  summary: 消息内容为空
+                  value:
+                    code: EMPTY_CONTENT
+                    message: 消息内容不能为空
+        "404":
+          $ref: "#/components/responses/SessionNotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /sessions/{session_id}/events:
+    get:
+      tags:
+        - Events
+      summary: 订阅会话 SSE 时间线事件
+      description: |
+        建立 SSE 长连接。服务端会先补发历史事件，然后持续推送实时事件。
+
+        Apifox 如果不能稳定展示 SSE，可以使用 curl 验证：
+
+        curl -N http://localhost:8080/sessions/{session_id}/events
+      operationId: streamSessionEvents
+      parameters:
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "200":
+          description: SSE 事件流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: user_message
+                data: {"id":"evt_xxx","session_id":"ses_xxx","type":"user_message","message":"开始研究","created_at":"2026-06-15T20:22:18+08:00"}
+
+                event: agent_started
+                data: {"id":"evt_xxx","session_id":"ses_xxx","type":"agent_started","message":"Planner Agent 正在生成研究计划","created_at":"2026-06-15T20:22:19+08:00"}
+        "404":
+          $ref: "#/components/responses/SessionNotFound"
+        "500":
+          description: 服务器错误或当前连接不支持流式响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                streaming_unsupported:
+                  summary: 不支持流式响应
+                  value:
+                    code: STREAMING_UNSUPPORTED
+                    message: 当前连接不支持流式响应
+                internal:
+                  summary: 服务器内部错误
+                  value:
+                    code: INTERNAL_SERVER_ERROR
+                    message: 服务器内部错误
+
+components:
+  parameters:
+    SessionID:
+      name: session_id
+      in: path
+      required: true
+      description: 研究会话 ID
+      schema:
+        type: string
+      example: ses_xxx
+
+  responses:
+    InvalidJSON:
+      description: 请求体不是合法 JSON
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INVALID_JSON
+            message: 请求体不是合法 JSON
+    SessionNotFound:
+      description: 会话不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: SESSION_NOT_FOUND
+            message: 会话不存在
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: INTERNAL_SERVER_ERROR
+            message: 服务器内部错误
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - time
+      properties:
+        status:
+          type: string
+          example: ok
+        time:
+          type: string
+          format: date-time
+          example: "2026-06-15T20:22:18+08:00"
+
+    CreateSessionRequest:
+      type: object
+      properties:
+        topic:
+          type: string
+          description: 研究主题。为空时后端会使用默认主题。
+          example: "Eino 多 Agent 研究"
+
+    SessionStatus:
+      type: string
+      enum:
+        - created
+        - running
+        - waiting_approval
+        - completed
+        - failed
+
+    SessionResponse:
+      type: object
+      required:
+        - id
+        - topic
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          example: ses_xxx
+        topic:
+          type: string
+          example: "Eino 多 Agent 研究"
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListSessionsResponse:
+      type: object
+      required:
+        - sessions
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionResponse"
+
+    SendMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: "开始研究"
+
+    SendMessageResponse:
+      type: object
+      required:
+        - status
+        - session_id
+      properties:
+        status:
+          type: string
+          example: accepted
+        session_id:
+          type: string
+          example: ses_xxx
+
+    EventResponse:
+      type: object
+      required:
+        - id
+        - session_id
+        - type
+        - message
+        - created_at
+      properties:
+        id:
+          type: string
+          example: evt_xxx
+        session_id:
+          type: string
+          example: ses_xxx
+        type:
+          type: string
+          enum:
+            - user_message
+            - session_started
+            - agent_started
+            - workflow_step
+            - tool_call
+            - tool_result
+            - approval_required
+            - report_saved
+            - error
+        message:
+          type: string
+          example: "Planner Agent 正在生成研究计划"
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: EMPTY_CONTENT
+        message:
+          type: string
+          example: 消息内容不能为空

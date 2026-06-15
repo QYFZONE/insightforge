@@ -5,11 +5,16 @@ import "time"
 type Status string
 
 const (
-	StatusCreated         Status = "created"
-	StatusRunning         Status = "running"
+	// 任务已经创建，还没有开始执行
+	StatusCreated Status = "created"
+	//	任务正在执行
+	StatusRunning Status = "running"
+	// 等待用户确认或审批
 	StatusWaitingApproval Status = "waiting_approval"
-	StatusCompleted       Status = "completed"
-	StatusFailed          Status = "failed"
+	// 任务执行完成
+	StatusCompleted Status = "completed"
+	// 任务执行失败
+	StatusFailed Status = "failed"
 )
 
 // Session 是一次研究任务的顶层记录。
@@ -31,14 +36,4 @@ type Event struct {
 	Message   string         `json:"message"`
 	Payload   map[string]any `json:"payload,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
-}
-
-// CreateRequest 对应 POST /sessions。
-type CreateRequest struct {
-	Topic string `json:"topic"`
-}
-
-// MessageRequest 对应 POST /sessions/{id}/messages。
-type MessageRequest struct {
-	Content string `json:"content"`
 }
