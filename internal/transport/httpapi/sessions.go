@@ -7,12 +7,8 @@ import (
 	"time"
 )
 
+// handleCreateSession 处理创建研究会话请求。
 func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
-	// 1. 定义 var req createSessionRequest。
-	// 2. 用 json.NewDecoder(r.Body).Decode(&req) 解析请求体。
-	// 3. 解析失败时返回 400。
-	// 4. 调用 s.research.CreateSession(r.Context(), req.Topic)。
-	// 5. 成功时用 toSessionResponse(item) 返回 201。
 	var req createSessionRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -28,10 +24,8 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toSessionResponse(item))
 }
 
+// handleListSessions 返回当前保存的研究会话列表。
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
-	// 1. 调用 s.research.ListSessions(r.Context())。
-	// 2. 出错时返回 500。
-	// 3. 成功时用 toSessionResponses(items) 返回 listSessionsResponse。
 	items, err := s.research.ListSessions(r.Context())
 	if err != nil {
 		writeInternalError(w, err)
@@ -40,6 +34,7 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listSessionsResponse{Sessions: toSessionResponses(items)})
 }
 
+// handleSessionRoute 分发 /sessions/{id}/... 下面的子路由。
 func (s *Server) handleSessionRoute(w http.ResponseWriter, r *http.Request) {
 	sessionID, tail, ok := parseSessionPath(r.URL.Path)
 	if !ok {
@@ -57,37 +52,33 @@ func (s *Server) handleSessionRoute(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSessionEvents 通过 SSE 返回历史事件，并持续推送实时事件。
 func (s *Server) handleSessionEvents(w http.ResponseWriter, r *http.Request, sessionID string) {
-	// 1. 用 s.research.ListEvents(r.Context(), sessionID) 获取历史事件。
-	// 2. 设置 SSE headers：Content-Type、Cache-Control、Connection。
-	// 3. 获取 http.Flusher；拿不到就返回 500。
-	// 4. 先把历史事件逐条 writeSSE + Flush。
-	// 5. 调用 s.research.SubscribeEvents(sessionID) 订阅实时事件，记得 defer cancel()。
-	// 6. select 循环：
-	//    - r.Context().Done()：客户端断开，退出。
-	//    - 收到事件：writeSSE + Flush。
-	//    - 心跳 ticker：写入 ": ping\n\n" + Flush。
 	events, err := s.research.ListEvents(r.Context(), sessionID)
 	if err != nil {
 		writeResearchError(w, err)
 		return
 	}
+	// SSE 响应头必须在第一次 Write 之前设置。
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
+	// Flusher 是 SSE 必需能力；没有它就无法及时把事件刷给客户端。
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeStreamingUnsupported(w)
 		return
 	}
 
+	// 先写一条注释帧，帮助客户端确认连接已经建立。
 	if _, err := w.Write([]byte(": connected\n\n")); err != nil {
 		return
 	}
 	flusher.Flush()
 
+	// 先补历史，再订阅实时，保证刷新页面时能看到完整 timeline。
 	for _, event := range events {
 		if err := writeSSE(w, event); err != nil {
 			return
@@ -98,6 +89,7 @@ func (s *Server) handleSessionEvents(w http.ResponseWriter, r *http.Request, ses
 	ch, cancel := s.research.SubscribeEvents(sessionID)
 	defer cancel()
 
+	// 心跳避免代理或浏览器长时间无数据时断开连接。
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
@@ -122,12 +114,8 @@ func (s *Server) handleSessionEvents(w http.ResponseWriter, r *http.Request, ses
 	}
 }
 
+// handleCreateMessage 保存用户消息，并触发后台 Agent 执行。
 func (s *Server) handleCreateMessage(w http.ResponseWriter, r *http.Request, sessionID string) {
-	// 1. 定义 var req sendMessageRequest。
-	// 2. 用 json.NewDecoder(r.Body).Decode(&req) 解析请求体。
-	// 3. 调用 s.research.SendMessage(r.Context(), sessionID, req.Content)。
-	// 4. 用 writeResearchError 统一翻译业务错误。
-	// 5. 成功时返回 sendMessageResponse。
 	var req sendMessageRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -147,6 +135,7 @@ func (s *Server) handleCreateMessage(w http.ResponseWriter, r *http.Request, ses
 	})
 }
 
+// parseSessionPath 解析 /sessions/{sessionID}/{tail} 这种固定两段路径。
 func parseSessionPath(path string) (sessionID string, tail string, ok bool) {
 	rest := strings.TrimPrefix(path, "/sessions/")
 	if rest == path {

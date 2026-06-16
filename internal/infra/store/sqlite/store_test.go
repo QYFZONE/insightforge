@@ -10,6 +10,7 @@ import (
 	"insightforge/internal/domain/session"
 )
 
+// TestOpenCreatesDatabase 验证 Open 会创建并初始化数据库文件。
 func TestOpenCreatesDatabase(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "insightforge.db")
@@ -21,6 +22,7 @@ func TestOpenCreatesDatabase(t *testing.T) {
 	defer store.Close()
 }
 
+// TestStoreCreateAndGet 验证创建后可以按 ID 读回同一条 Session。
 func TestStoreCreateAndGet(t *testing.T) {
 	ctx := context.Background()
 	store := openTestStore(t)
@@ -46,6 +48,7 @@ func TestStoreCreateAndGet(t *testing.T) {
 	}
 }
 
+// TestStoreListOrdersByCreatedAtDesc 验证会话列表按创建时间倒序返回。
 func TestStoreListOrdersByCreatedAtDesc(t *testing.T) {
 	ctx := context.Background()
 	store := openTestStore(t)
@@ -72,6 +75,7 @@ func TestStoreListOrdersByCreatedAtDesc(t *testing.T) {
 	}
 }
 
+// TestStoreSetStatus 验证状态更新会持久化。
 func TestStoreSetStatus(t *testing.T) {
 	ctx := context.Background()
 	store := openTestStore(t)
@@ -93,6 +97,7 @@ func TestStoreSetStatus(t *testing.T) {
 	}
 }
 
+// TestStoreAddEventAndListEvents 验证事件写入、排序和 payload 反序列化。
 func TestStoreAddEventAndListEvents(t *testing.T) {
 	ctx := context.Background()
 	store := openTestStore(t)
@@ -138,6 +143,7 @@ func TestStoreAddEventAndListEvents(t *testing.T) {
 	}
 }
 
+// TestStoreReturnsNotFound 验证不存在的会话会返回领域错误。
 func TestStoreReturnsNotFound(t *testing.T) {
 	store := openTestStore(t)
 
@@ -147,6 +153,7 @@ func TestStoreReturnsNotFound(t *testing.T) {
 	}
 }
 
+// openTestStore 为每个测试创建独立临时数据库。
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
 

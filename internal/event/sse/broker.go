@@ -5,13 +5,13 @@ import (
 	"sync"
 )
 
+// Broker 是单进程内存版 SSE 发布订阅中心。
 type Broker struct {
 	mu          sync.RWMutex
 	subscribers map[string]map[chan session.Event]struct{}
 }
 
-// NewBroker 创建内存 SSE Broker。
-// TODO: 多实例部署时需要替换为 Redis Pub/Sub 或消息队列。
+// NewBroker 创建单进程内存 SSE Broker；多实例部署时可替换为 Redis Pub/Sub 或消息队列。
 func NewBroker() *Broker {
 	return &Broker{
 		subscribers: make(map[string]map[chan session.Event]struct{}),
@@ -21,14 +21,11 @@ func NewBroker() *Broker {
 // Subscribe 订阅某个 Session 的实时事件。
 // 返回 cancel 用于请求结束时注销订阅，避免 channel 泄漏。
 func (b *Broker) Subscribe(sessionID string) (<-chan session.Event, func()) {
-	// 1. 创建带缓冲 channel
-	// 2. 加写锁
-	// 3. 如果 b.subscribers[sessionID] 不存在，先 make
-	// 4. 把 channel 加进订阅者集合
-	// 5. 返回只读 channel 和 cancel 函数
+	// 带缓冲可以吸收短时间事件突增，避免发布端被单个客户端拖住。
 	ch := make(chan session.Event, 16)
 	b.mu.Lock()
 
+	// 每个 sessionID 维护一组订阅者 channel。
 	if _, ok := b.subscribers[sessionID]; !ok {
 		b.subscribers[sessionID] = make(map[chan session.Event]struct{})
 	}
@@ -36,11 +33,6 @@ func (b *Broker) Subscribe(sessionID string) (<-chan session.Event, func()) {
 
 	b.mu.Unlock()
 
-	// cancel 需要：
-	// 1. 加写锁
-	// 2. 从集合中 delete channel
-	// 3. 如果集合为空，删除 sessionID
-	// 4. close channel
 	var once sync.Once
 	cancel := func() {
 		once.Do(func() {
@@ -62,10 +54,7 @@ func (b *Broker) Subscribe(sessionID string) (<-chan session.Event, func()) {
 // 如果某个客户端太慢，当前实现会丢弃该客户端的这一条实时事件；
 // 历史事件仍然保存在 Store 中，刷新页面可以补回来。
 func (b *Broker) Publish(event session.Event) {
-	// 1. 加读锁
-	// 2. 遍历 b.subscribers[event.SessionID]
-	// 3. 非阻塞发送事件：
-	//    select { case ch <- event: default: }
+	// Publish 只负责实时推送；可靠历史由 Store 中的 ListEvents 保证。
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 

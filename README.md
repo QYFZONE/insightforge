@@ -49,10 +49,11 @@ go run ./cmd/server
 curl http://localhost:8080/healthz
 ```
 
-SSE 事件流演示：
+创建会话并连接 SSE 事件流：
 
 ```powershell
-curl http://localhost:8080/events
+$session = Invoke-RestMethod -Method Post -Uri http://localhost:8080/sessions -ContentType "application/json" -Body '{"topic":"Eino Agent 调研"}'
+curl.exe -N "http://localhost:8080/sessions/$($session.id)/events"
 ```
 
 ## 目录说明
@@ -66,7 +67,7 @@ internal/transport/httpapi    HTTP / SSE 适配层
 internal/event/sse            SSE 事件推送
 internal/infra/store/memory   内存存储实现
 internal/infra/store/sqlite   SQLite / GORM 存储实现
-internal/agent                Agent 执行器，后续接入 Eino
+internal/agent                Agent 执行器，包含 mock 和 Ark 真实模型实现
 skills                        可复用 SKILL.md
 web                           前端应用
 reports                       生成的报告
@@ -80,8 +81,9 @@ docs                          项目文档
 HTTP_ADDR      HTTP 监听地址，默认 :8080
 STORE_DRIVER   存储类型，支持 memory / sqlite
 SQLITE_PATH    SQLite 数据库文件路径，默认 data/insightforge.db
-ARK_API_KEY    火山 Ark API Key，后续真实 Agent 阶段使用
-ARK_MODEL_ID   火山 Ark 模型接入点 ID，后续真实 Agent 阶段使用
+AGENT_DRIVER   Agent 类型，支持 mock / ark
+ARK_API_KEY    火山 Ark API Key，AGENT_DRIVER=ark 时使用
+ARK_MODEL_ID   火山 Ark 模型接入点 ID，AGENT_DRIVER=ark 时使用
 ARK_BASE_URL   火山 Ark API 地址，默认 https://ark.cn-beijing.volces.com/api/v3
 ```
 

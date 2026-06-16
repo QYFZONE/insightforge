@@ -5,6 +5,7 @@ import (
 	dbmodel "insightforge/internal/infra/store/sqlite/model"
 )
 
+// toSessionModel 把领域 Session 转成数据库模型。
 func toSessionModel(item session.Session) dbmodel.Session {
 	return dbmodel.Session{
 		ID:        item.ID,
@@ -15,6 +16,7 @@ func toSessionModel(item session.Session) dbmodel.Session {
 	}
 }
 
+// toSession 把数据库模型转回领域 Session。
 func toSession(record dbmodel.Session) session.Session {
 	return session.Session{
 		ID:        record.ID,
@@ -25,6 +27,7 @@ func toSession(record dbmodel.Session) session.Session {
 	}
 }
 
+// toEventModel 把领域事件和已经序列化的 payload 转成数据库模型。
 func toEventModel(event session.Event, payload string) dbmodel.Event {
 	return dbmodel.Event{
 		ID:        event.ID,
@@ -36,6 +39,7 @@ func toEventModel(event session.Event, payload string) dbmodel.Event {
 	}
 }
 
+// toEvent 把数据库事件转回领域事件，并反序列化 payload。
 func toEvent(record dbmodel.Event) (session.Event, error) {
 	payload, err := decodePayload(record.Payload)
 	if err != nil {

@@ -2,12 +2,13 @@ package session
 
 import "time"
 
+// Status 描述研究任务当前所处的生命周期状态。
 type Status string
 
 const (
 	// 任务已经创建，还没有开始执行
 	StatusCreated Status = "created"
-	//	任务正在执行
+	// 任务正在执行
 	StatusRunning Status = "running"
 	// 等待用户确认或审批
 	StatusWaitingApproval Status = "waiting_approval"
@@ -18,7 +19,6 @@ const (
 )
 
 // Session 是一次研究任务的顶层记录。
-// TODO: 第二阶段把它映射到 SQLite sessions 表。
 type Session struct {
 	ID        string    `json:"id"`
 	Topic     string    `json:"topic"`

@@ -20,6 +20,7 @@ const (
 	errorCodeStreamingUnsupported = "STREAMING_UNSUPPORTED"
 )
 
+// writeSSE 按 SSE 协议写入一条事件。
 func writeSSE(w http.ResponseWriter, event session.Event) error {
 	data, err := json.Marshal(toEventResponse(event))
 	if err != nil {
@@ -34,6 +35,7 @@ func writeSSE(w http.ResponseWriter, event session.Event) error {
 	return nil
 }
 
+// writeSessionError 把 session 领域错误翻译为 HTTP 错误响应。
 func writeSessionError(w http.ResponseWriter, err error) {
 	if errors.Is(err, session.ErrNotFound) {
 		writeError(w, http.StatusNotFound, errorCodeSessionNotFound, "会话不存在")
@@ -42,6 +44,7 @@ func writeSessionError(w http.ResponseWriter, err error) {
 	writeInternalError(w, err)
 }
 
+// writeResearchError 把研究业务层错误翻译为 HTTP 错误响应。
 func writeResearchError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, session.ErrNotFound):
@@ -53,23 +56,28 @@ func writeResearchError(w http.ResponseWriter, err error) {
 	}
 }
 
+// writeInvalidJSON 返回请求体解析失败错误。
 func writeInvalidJSON(w http.ResponseWriter) {
 	writeError(w, http.StatusBadRequest, errorCodeInvalidJSON, "请求体不是合法 JSON")
 }
 
+// writeRouteNotFound 返回统一的路由不存在错误。
 func writeRouteNotFound(w http.ResponseWriter) {
 	writeError(w, http.StatusNotFound, errorCodeNotFound, "接口不存在")
 }
 
+// writeStreamingUnsupported 返回当前连接不支持流式响应的错误。
 func writeStreamingUnsupported(w http.ResponseWriter) {
 	writeError(w, http.StatusInternalServerError, errorCodeStreamingUnsupported, "当前连接不支持流式响应")
 }
 
+// writeInternalError 记录内部错误，但对用户隐藏具体实现细节。
 func writeInternalError(w http.ResponseWriter, err error) {
 	log.Printf("internal error: %v", err)
 	writeError(w, http.StatusInternalServerError, errorCodeInternalServer, "服务器内部错误")
 }
 
+// writeError 写入统一结构的错误响应。
 func writeError(w http.ResponseWriter, status int, code string, message string) {
 	writeJSON(w, status, errorResponse{
 		Code:    code,
@@ -77,6 +85,7 @@ func writeError(w http.ResponseWriter, status int, code string, message string) 
 	})
 }
 
+// writeJSON 写入 JSON 响应并设置 Content-Type。
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

@@ -12,16 +12,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// Store 是基于 GORM 的 SQLite 持久化实现。
 type Store struct {
 	db *gorm.DB
 }
 
+// Create 创建研究会话并持久化到 sessions 表。
 func (s *Store) Create(ctx context.Context, topic string) (session.Session, error) {
-	// 1. 清理 topic，为空时使用默认标题。
-	// 2. 组装 session.Session，ID 用 session.NewID("ses")。
-	// 3. 用 toSessionModel 转成 GORM 数据对象。
-	// 4. 调用 s.db.WithContext(ctx).Create(&record).Error。
-	// 5. 返回领域对象 item。
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
 		topic = "未命名研究任务"
@@ -42,10 +39,8 @@ func (s *Store) Create(ctx context.Context, topic string) (session.Session, erro
 	return item, nil
 }
 
+// List 返回所有会话，并按创建时间倒序排列。
 func (s *Store) List(ctx context.Context) ([]session.Session, error) {
-	// 1. 定义 []model.Session。
-	// 2. 用 Order("created_at DESC").Find(&records) 查询。
-	// 3. 把 records 转成 []session.Session。
 	var records []model.Session
 	err := s.db.WithContext(ctx).Order("created_at desc").Find(&records).Error
 	if err != nil {
@@ -58,11 +53,8 @@ func (s *Store) List(ctx context.Context) ([]session.Session, error) {
 	return sessions, nil
 }
 
+// Get 根据 ID 查询会话，并把 GORM 的 not found 映射为领域错误。
 func (s *Store) Get(ctx context.Context, sessionID string) (session.Session, error) {
-	// 1. 用 First(&record, "id = ?", sessionID) 查询。
-	// 2. 如果 errors.Is(err, gorm.ErrRecordNotFound)，返回 session.ErrNotFound。
-	// 3. 其他错误原样返回。
-	// 4. 成功时用 toSession(record) 返回领域对象。
 	record := model.Session{}
 	err := s.db.WithContext(ctx).First(&record, "id = ?", sessionID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -74,10 +66,8 @@ func (s *Store) Get(ctx context.Context, sessionID string) (session.Session, err
 	return toSession(record), nil
 }
 
+// SetStatus 更新会话状态。
 func (s *Store) SetStatus(ctx context.Context, sessionID string, status session.Status) error {
-	// 1. 用 Model(&model.Session{}).Where("id = ?", sessionID).Updates(...)。
-	// 2. 同时更新 status 和 updated_at。
-	// 3. 如果 RowsAffected == 0，返回 session.ErrNotFound。
 	result := s.db.WithContext(ctx).
 		Model(&model.Session{}).
 		Where("id = ?", sessionID).
@@ -94,13 +84,8 @@ func (s *Store) SetStatus(ctx context.Context, sessionID string, status session.
 	return nil
 }
 
+// AddEvent 保存 timeline 事件。
 func (s *Store) AddEvent(ctx context.Context, event session.Event) (session.Event, error) {
-	// 1. 先调用 s.Get(ctx, event.SessionID)，确认 session 存在。
-	// 2. event.ID 为空时用 session.NewID("evt")。
-	// 3. event.CreatedAt 为空时用 time.Now()。
-	// 4. 用 encodePayload 序列化 Payload。
-	// 5. 用 toEventModel 转成 GORM 数据对象。
-	// 6. 调用 s.db.WithContext(ctx).Create(&record).Error。
 	if _, err := s.Get(ctx, event.SessionID); err != nil {
 		return session.Event{}, err
 	}
@@ -121,10 +106,8 @@ func (s *Store) AddEvent(ctx context.Context, event session.Event) (session.Even
 	return event, nil
 }
 
+// ListEvents 返回某个会话的历史事件。
 func (s *Store) ListEvents(ctx context.Context, sessionID string) ([]session.Event, error) {
-	// 1. 先调用 s.Get(ctx, sessionID)，确认 session 存在。
-	// 2. 用 Where("session_id = ?", sessionID).Order("created_at ASC").Find(&records)。
-	// 3. 用 toEvent(record) 转成 []session.Event。
 	if _, err := s.Get(ctx, sessionID); err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package httpapi
 
 import "insightforge/internal/domain/session"
 
+// toSessionResponse 把领域模型转换为 HTTP 响应 DTO。
 func toSessionResponse(item session.Session) sessionResponse {
 	return sessionResponse{
 		ID:        item.ID,
@@ -12,6 +13,7 @@ func toSessionResponse(item session.Session) sessionResponse {
 	}
 }
 
+// toSessionResponses 批量转换 Session 响应对象。
 func toSessionResponses(items []session.Session) []sessionResponse {
 	out := make([]sessionResponse, 0, len(items))
 	for _, item := range items {
@@ -20,6 +22,7 @@ func toSessionResponses(items []session.Session) []sessionResponse {
 	return out
 }
 
+// toEventResponse 把 timeline 事件转换为 HTTP/SSE 响应 DTO。
 func toEventResponse(event session.Event) eventResponse {
 	return eventResponse{
 		ID:        event.ID,

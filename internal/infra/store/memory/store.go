@@ -10,14 +10,14 @@ import (
 	"insightforge/internal/domain/session"
 )
 
+// Store 是内存版 SessionStore，主要用于本地开发和快速演示。
 type Store struct {
 	mu       sync.RWMutex
 	sessions map[string]*session.Session
 	events   map[string][]session.Event
 }
 
-// NewStore 创建第一阶段使用的内存 Store。
-// TODO: 第二阶段替换为 SQLite/GORM 实现，接口行为保持不变。
+// NewStore 创建内存 Store；它和持久化 Store 暴露同一套接口，方便本地调试切换。
 func NewStore() *Store {
 	return &Store{
 		sessions: make(map[string]*session.Session),
@@ -25,13 +25,8 @@ func NewStore() *Store {
 	}
 }
 
+// Create 创建研究会话，并把它保存到内存 map。
 func (s *Store) Create(ctx context.Context, topic string) (session.Session, error) {
-	// 1. strings.TrimSpace(topic)
-	// 2. 如果 topic 为空，使用“未命名研究任务”
-	// 3. 创建 Session，ID 用 session.NewID("ses")
-	// 4. Status 设置为 session.StatusCreated
-	// 5. CreatedAt / UpdatedAt 设置为 time.Now()
-	// 6. 加写锁，把 session 存进 s.sessions
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
 		topic = "未命名研究任务"
@@ -51,12 +46,12 @@ func (s *Store) Create(ctx context.Context, topic string) (session.Session, erro
 	return item, nil
 }
 
+// List 返回所有会话，并按创建时间倒序排列。
 func (s *Store) List(ctx context.Context) ([]session.Session, error) {
-	// 1. 加读锁
-	// 2. 把 map 里的 *Session 拷贝成 []Session
-	// 3. 按 CreatedAt 倒序排序
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	// 返回值使用值拷贝，避免调用方修改 Store 内部状态。
 	items := make([]session.Session, 0, len(s.sessions))
 	for _, item := range s.sessions {
 		items = append(items, *item)
@@ -67,10 +62,8 @@ func (s *Store) List(ctx context.Context) ([]session.Session, error) {
 	return items, nil
 }
 
+// Get 根据 ID 读取会话。
 func (s *Store) Get(ctx context.Context, sessionID string) (session.Session, error) {
-	// 1. 加读锁
-	// 2. 从 s.sessions 查 sessionID
-	// 3. 不存在时返回 session.ErrNotFound
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	item, ok := s.sessions[sessionID]
@@ -80,10 +73,8 @@ func (s *Store) Get(ctx context.Context, sessionID string) (session.Session, err
 	return *item, nil
 }
 
+// SetStatus 更新会话状态和更新时间。
 func (s *Store) SetStatus(ctx context.Context, sessionID string, status session.Status) error {
-	// 1. 加写锁
-	// 2. 找到 session
-	// 3. 更新 Status 和 UpdatedAt
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	item, ok := s.sessions[sessionID]
@@ -95,14 +86,11 @@ func (s *Store) SetStatus(ctx context.Context, sessionID string, status session.
 	return nil
 }
 
+// AddEvent 保存 timeline 事件。
 func (s *Store) AddEvent(ctx context.Context, event session.Event) (session.Event, error) {
-	// 1. 如果 event.ID 为空，用 session.NewID("evt")
-	// 2. 如果 CreatedAt 为空，用 time.Now()
-	// 3. 加写锁
-	// 4. 确认 event.SessionID 对应的 Session 存在，否则 session.ErrNotFound
-	// 5. append 到 s.events[event.SessionID]
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if event.ID == "" {
 		event.ID = session.NewID("evt")
 	}
@@ -116,15 +104,15 @@ func (s *Store) AddEvent(ctx context.Context, event session.Event) (session.Even
 	return event, nil
 }
 
+// ListEvents 返回某个会话的历史事件副本。
 func (s *Store) ListEvents(ctx context.Context, sessionID string) ([]session.Event, error) {
-	// 1. 加读锁
-	// 2. 确认 Session 存在
-	// 3. 拷贝事件切片后返回，避免外部修改内部状态
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if _, ok := s.sessions[sessionID]; !ok {
 		return nil, session.ErrNotFound
 	}
+
+	// 拷贝事件切片，避免调用方拿到内部 slice 后意外改写 Store 状态。
 	items := s.events[sessionID]
 	out := make([]session.Event, len(items))
 	copy(out, items)

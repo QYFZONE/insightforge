@@ -8,6 +8,7 @@ node_modules/
 reports/*.pdf
 reports/*.html
 data/*.db
+data/*.log
 data/*.sqlite
 data/*.sqlite3
 data/uploads/
